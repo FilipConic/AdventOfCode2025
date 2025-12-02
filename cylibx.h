@@ -365,7 +365,7 @@ void* __cyx_array_fold(void* arr, void* accumulator, void (*fn)(void*, const voi
 #define cyx_array_length(arr) (__CYX_ARRAY_GET_HEADER(arr)->len)
 #define cyx_array_foreach(val, arr) __CYX_ARRAY_TYPECHECK(arr); \
 	for (struct { typeof(*arr)* value; size_t idx; } val = { .value = arr, .idx = 0 }; \
-		val.idx < array_length(arr); ++val.idx, \
+		val.idx < cyx_array_length(arr); ++val.idx, \
 		val.value = (typeof(*arr)*)((char*)val.value + __CYX_ARRAY_GET_HEADER(arr)->size) )
 #define cyx_array_drain(val, arr) __CYX_ARRAY_TYPECHECK(arr); \
 	for (typeof(*arr)* val = NULL; (val = array_pop(arr));)
@@ -464,12 +464,12 @@ void* __cyx_array_copy(void* arr) {
 	return (void*)(type + 2);
 }
 void __cyx_array_expand(void** arr_ptr, size_t n) {
-
 	__CyxArrayHeader* head = __CYX_ARRAY_GET_HEADER(*arr_ptr);
 	size_t new_cap = head->cap;
+
 	while (n + head->len > (new_cap <<= 1));
-	__CyxArrayHeader* new_head = malloc(__CYX_ARRAY_HEADER_SIZE + new_cap * head->size);
-	memcpy(new_head, head, __CYX_ARRAY_HEADER_SIZE + head->cap * head->size);
+	__CyxArrayHeader* new_head = malloc(__CYX_ARRAY_HEADER_SIZE + __CYX_TYPE_SIZE + new_cap * head->size);
+	memcpy(new_head, head, __CYX_ARRAY_HEADER_SIZE + __CYX_TYPE_SIZE + head->cap * head->size);
 	new_head->cap = new_cap;
 
 	enum __CyxDataType* type = (void*)(new_head + 1);
@@ -1552,12 +1552,12 @@ void cyx_hashmap_print(const void* map);
 	typeof(map->value) val = v; \
 	__cyx_hashmap_add_v((void**)&(map), &key, &val); \
 } while(0)
-#define __cyx_hashmap_get_params(...) __cyx_hashmap_get((struct __CyxHashMapFuncParams){ 0, __VA_ARGS__ })
+#define __cyx_hashmap_get_params(...) __cyx_hashmap_get((struct __CyxHashMapFuncParams){ __VA_ARGS__ })
 #define cyx_hashmap_get(map, k, ...) ({ \
 	typeof((map)->key) key = k; \
 	(typeof((map)->value)*) __cyx_hashmap_get_params( .__map = map, .__key = &key, __VA_ARGS__ ); \
 })
-#define __cyx_hashmap_remove_params(...) __cyx_hashmap_remove((struct __CyxHashMapFuncParams){ 0, __VA_ARGS__ })
+#define __cyx_hashmap_remove_params(...) __cyx_hashmap_remove((struct __CyxHashMapFuncParams){ __VA_ARGS__ })
 #define cyx_hashmap_remove(map, k, ...) ({ \
 	typeof((map)->key) key = k; \
 	(typeof((map)->value)*)__cyx_hashmap_remove_params( .__map = map, .__key = &key, __VA_ARGS__ ); \
@@ -1926,7 +1926,7 @@ void cyx_binheap_print(const void* heap);
 #define cyx_binheap_drain(val, heap) __CYX_BINHEAP_TYPECHECK(heap); \
 	for (typeof(*heap)* val = NULL; (val = cyx_binheap_extract(heap));)
 
-#define __cyx_binheap_new_params(...) __cyx_binheap_new((struct __CyxBinaryHeapParams){ 0, __VA_ARGS__ })
+#define __cyx_binheap_new_params(...) __cyx_binheap_new((struct __CyxBinaryHeapParams){ __VA_ARGS__ })
 #define cyx_binheap_new(T, cmp, ...) (T*)__cyx_binheap_new_params(.__size = sizeof(T), .__cmp_fn = cmp, __VA_ARGS__)
 #define cyx_binheap_insert(heap, val) do { \
 	typeof(*heap) v = val; \
@@ -1938,12 +1938,12 @@ void cyx_binheap_print(const void* heap);
 	__cyx_binheap_insert_mult_n((void**)&(heap), sizeof(mult)/sizeof(*mult), mult); \
 } while(0)
 #define cyx_binheap_extract(heap) (typeof(*heap)*)__cyx_binheap_extract(heap)
-#define __cyx_binheap_contains_params(...) __cyx_binary_contains((struct __CyxBinaryHeapSearchParams){ 0, __VA_ARGS__ })
+#define __cyx_binheap_contains_params(...) __cyx_binary_contains((struct __CyxBinaryHeapSearchParams){ __VA_ARGS__ })
 #define cyx_binheap_contains(heap, val, ...) ({ \
 	typeof(*(heap)) v = (val); \
 	__cyx_binary_contains_params(.__heap = (heap), .__val = &v, __VA_ARGS__); \
 })
-#define __cyx_binheap_remove_params(...) __cyx_binheap_remove((struct __CyxBinaryHeapSearchParams){ 0, __VA_ARGS__ })
+#define __cyx_binheap_remove_params(...) __cyx_binheap_remove((struct __CyxBinaryHeapSearchParams){ __VA_ARGS__ })
 #define cyx_binheap_remove(heap, val, ...) ({ \
 	typeof(*heap) v = (val); \
 	__cyx_binheap_remove_params(.__heap = (heap), .__val = &v, __VA_ARGS__); \
