@@ -352,6 +352,7 @@ void* __cyx_array_at(void* arr, int pos);
 void cyx_array_free(void* arr);
 void __cyx_array_append_mult_n(void** arr_ptr, size_t n, const void* mult);
 void cyx_array_print(const void* arr);
+void cyx_array_clear(void* arr);
 
 void __cyx_array_sort(void* arr, int start, int end);
 void* __cyx_array_map(const void* arr, void (*fn)(void*, const void*));
@@ -420,6 +421,7 @@ void* __cyx_array_fold(void* arr, void* accumulator, void (*fn)(void*, const voi
 
 #define array_free cyx_array_free
 #define array_print cyx_array_print
+#define array_clear cyx_array_clear
 #define array_map_self cyx_array_map_self
 #define array_filter_self cyx_array_filter_self
 #define array_find cyx_array_find
@@ -455,11 +457,11 @@ void* __cyx_array_copy(void* arr) {
 	__CYX_ARRAY_TYPECHECK(arr);
 	__CyxArrayHeader* head = __CYX_ARRAY_GET_HEADER(arr);
 
-	__CyxArrayHeader* res_head = malloc(__CYX_ARRAY_HEADER_SIZE + head->cap * head->size);
+	__CyxArrayHeader* res_head = malloc(__CYX_ARRAY_HEADER_SIZE + __CYX_TYPE_SIZE + head->cap * head->size);
 	if (!res_head) { return NULL; }
-	memcpy(res_head, head, __CYX_ARRAY_HEADER_SIZE + head->len * head->size);
+	memcpy(res_head, head, __CYX_ARRAY_HEADER_SIZE + __CYX_TYPE_SIZE + head->cap * head->size);
 
-	enum __CyxDataType* type = (void*)(head + 1);
+	enum __CyxDataType* type = (void*)(res_head + 1);
 	*type = __CYX_TYPE_ARRAY;
 	return (void*)(type + 2);
 }
@@ -567,6 +569,11 @@ void cyx_array_print(const void* arr) {
 		}
 	}
 	printf(" }");
+}
+void cyx_array_clear(void* arr) {
+	__CYX_ARRAY_TYPECHECK(arr);
+	__CyxArrayHeader* head = __CYX_ARRAY_GET_HEADER(arr);
+	head->len = 0;
 }
 
 void __cyx_array_sort(void* arr, int start, int end) {
@@ -1064,6 +1071,7 @@ void __cyx_hashset_remove(void* set, void* val);
 int __cyx_hashset_contains(struct __CyxHashSetContainsParams params);
 void cyx_hashset_free(void* set);
 void cyx_hashset_print(const void* set);
+void cyx_hashset_clear(void* set);
 
 void* __cyx_hashset_union(const void* set1, const void* set2);
 void* __cyx_hashset_union(const void* set1, const void* set2);
@@ -1079,7 +1087,7 @@ void* __cyx_hashset_diff_self(void* self, const void* other);
 	for (typeof(*set)* val = (set); \
 		 __CYX_UNIQUE_VAL__(counter) < __CYX_HASH_SET_GET_HEADER(set)->cap; \
 		 ++__CYX_UNIQUE_VAL__(counter), \
-		 val = (char*)val + __CYX_HASH_SET_GET_HEADER(set)->size) \
+		 val = (void*)((char*)val + __CYX_HASH_SET_GET_HEADER(set)->size)) \
 		if (cyx_bitmap_get(__CYX_HASH_SET_GET_BITMAP(set), 2 * __CYX_UNIQUE_VAL__(counter)) && \
 			!cyx_bitmap_get(__CYX_HASH_SET_GET_BITMAP(set), 2 * __CYX_UNIQUE_VAL__(counter) + 1))
 
@@ -1090,10 +1098,10 @@ void* __cyx_hashset_diff_self(void* self, const void* other);
 	typeof(*set) v = val; \
 	__cyx_hashset_add((void**)&set, &v); \
 } while(0)
-#define cyx_hashset_add_mult_n(set, n, mult) __cyx_hashset_add_mult_n((void**)&(set), n, mult)
+#define cyx_hashset_add_mult_n(set, n, mult) __cyx_hashset_add_mult_n((void**)&(set), n, (void**)mult)
 #define cyx_hashset_add_mult(set, ...) do { \
 	typeof(*set) mult[] = { __VA_ARGS__ };\
-	__cyx_hashset_add_mult_n((void**)&(set), n, mult); \
+	__cyx_hashset_add_mult_n((void**)&(set), sizeof(mult) / sizeof(*mult), (void**)mult); \
 } while (0)
 #define cyx_hashset_remove(set, val) do { \
 	typeof(*set) v = val; \
@@ -1134,10 +1142,12 @@ void* __cyx_hashset_diff_self(void* self, const void* other);
 
 #define hashset_free cyx_hashset_free
 #define hashset_print cyx_hashset_print
+#define hashset_clear cyx_hashset_clear
 
 #endif // CYLIBX_STRIP_PREFIX
 
-#ifdef CYLIBX_IMPLEMENTATION
+// #ifdef CYLIBX_IMPLEMENTATION
+#if 1
 
 void* __cyx_hashset_new(struct __CyxHashSetParams params) {
 	size_t to_alloc = __CYX_HASH_SET_HEADER_SIZE + __CYX_TYPE_SIZE +
@@ -1287,11 +1297,10 @@ void __cyx_hashset_add_mult_n(void** set_ptr, size_t n, void** mult) {
 	}
 }
 void __cyx_hashset_remove(void* set, void* val) {
-	assert(set);
-
 	__CYX_HASHSET_TYPECHECK(set);
 	__CyxHashSetHeader* head = __CYX_HASH_SET_GET_HEADER(set);
 	assert(head->hash_fn && "ERROR: No hash function provided to hashset!");
+	if (head->len > 0) { return; }
 
 	size_t* bitmap = __CYX_HASH_SET_GET_BITMAP(set);
 	size_t pos = head->hash_fn(!head->is_ptr ? val : *(void**)val);
@@ -1378,6 +1387,21 @@ void cyx_hashset_print(const void* set) {
 		}
 	}
 	printf(" }");
+}
+void cyx_hashset_clear(void* set) {
+	__CYX_HASHSET_TYPECHECK(set);
+
+	__CyxHashSetHeader* head = __CYX_HASH_SET_GET_HEADER(set);
+	head->len = 0;
+	if (head->defer_fn) {
+		cyx_hashset_foreach(a, set) {
+			head->defer_fn(!head->is_ptr ? a : *(void**)a);
+		}
+	}
+
+	size_t* bitmap = __CYX_HASH_SET_GET_BITMAP(set);
+	size_t bitmap_head = *__CYX_BITMAP_GET_HEADER(bitmap);
+	memset(bitmap, 0, __CYX_BITMAP_CALC_SIZE(bitmap_head) * sizeof(size_t));
 }
 void* __cyx_hashset_union(const void* set1, const void* set2) {
 	__CYX_HASHSET_TYPECHECK(set1);
