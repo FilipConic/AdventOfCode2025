@@ -1146,8 +1146,7 @@ void* __cyx_hashset_diff_self(void* self, const void* other);
 
 #endif // CYLIBX_STRIP_PREFIX
 
-// #ifdef CYLIBX_IMPLEMENTATION
-#if 1
+#ifdef CYLIBX_IMPLEMENTATION
 
 void* __cyx_hashset_new(struct __CyxHashSetParams params) {
 	size_t to_alloc = __CYX_HASH_SET_HEADER_SIZE + __CYX_TYPE_SIZE +
